@@ -1,0 +1,4 @@
+beehive:
+  build: .
+  volumes:
+    - /Users/beehive/src:/usr/src/app
