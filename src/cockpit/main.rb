@@ -42,8 +42,14 @@ opt_parser = OptionParser.new do |opt|
         options[:number] = number
       end
     when 'up'
-      opt.on('-r', '--region', 'Region the hive will be built') do |region|
+      opt.on('-r', '--region [STRING]', 'Region the hive will be built') do |region|
         options[:region] = region
+      end
+      opt.on('-n', '--number [INTEGER]', 'Number of hive to destroy') do |number|
+        options[:number] = number
+      end
+      opt.on('-i', '--image_id [STRING]', 'The ID of the AMI') do |image_id|
+        options[:image_id] = image_id
       end
     when 'scale'
       opt.on('-n', '--number', 'Number of hive to destroy') do |number|
@@ -58,13 +64,13 @@ end
 
 
 if __FILE__ == $0
-  if ARGV.empty?
+  if ARGV.empty?  # if they just trying out, print the cmd message
     puts opt_parser
   else
-    opt_parser.parse!
-    if ['up', 'attack', 'scale'].include? command and options.empty?
+    opt_parser.parse!  # parse the commpand
+    if ['up', 'attack', 'scale'].include? command and options.empty?  # if up, attack and scale does not have any instructions, print help
       puts opt_parser
-    else
+    else  # dispatch the requst
       hq = Hq.new(command, options)
       hq.dispatch
     end
