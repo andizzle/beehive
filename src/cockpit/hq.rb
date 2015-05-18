@@ -2,22 +2,24 @@ require 'aws-sdk'
 
 class Hq
 
-  @command = nil
-  @options = {}
-  @hives = []
-  @region = 'us-east-1d'
+  @@command = nil
+  @@options = {}
+  @@hives = []
+  @@region = 'us-east-1'
 
   def initialize(command, options={})
-    @command = command
-    @options = options
-    @region = options.has_key?(:region) ? options[:region] : @region
-    Aws.config.update({:region => @region})
+    @@command = command
+    @@options = options
+    @@region = options.has_key?(:region) ? options[:region] : @@region
+    Aws.config.update({:region => @@region})
   end
 
   def dispatch
-    case @command
+    case @@command
     when 'up'
-      createHives(@options)
+      createHives @@options
+    when 'down'
+      destroyHives @@options
     end
   end
 
@@ -32,8 +34,9 @@ class Hq
       :instance_type => 't1.micro'
     }
     hive_options.merge!(options.select {|k,v| hive_options.has_key?(k)})
-    @hives = ec2_general.create_instances hive_options
-    ec2_general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => @hives.map(&:id)})
+    @@hives = ec2_general.create_instances hive_options
+    puts "%i hives are being built" % number_of_hive
+    ec2_general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => @@hives.map(&:id)})
   end
 
   def destroyHives(options)
