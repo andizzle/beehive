@@ -61,7 +61,7 @@ opt_parser = OptionParser.new do |opt|
         options[:image_id] = value
       end
     when 'scale'
-      opt.on('-n', '--number', 'Number of hive to scale to.') do |value|
+      opt.on('-n', '--number [INTEGER]', 'Number of hive to scale to.') do |value|
         options[:number] = value
       end
     end
