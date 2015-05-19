@@ -53,8 +53,8 @@ class Hq
     hive_options.merge!(options.select {|k,v| hive_options.has_key?(k)})
     @@hives = @@general.create_instances hive_options
     puts "%i hives are being built" % number_of_hive
-    @@general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => @@hives.map(&:id)})
     checkHivesStatus
+    @@general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => @@hives.map(&:id)})
     writeServerList options[:username], options[:key], options[:region], @@hives.map(&:id)
   end
 
