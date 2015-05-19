@@ -2,46 +2,70 @@ require 'aws-sdk'
 
 class Hq
 
+  @@general = nil
+  @@control = nil
   @@command = nil
   @@options = {}
   @@hives = []
   @@region = 'us-east-1'
 
+  STATE_FILE = File.expand_path('~/.hives')
+
   def initialize(command, options={})
     @@command = command
     @@options = options
+
+    state = readServerList
+    if state and state.has_key? :region
+      @@region = state[:region]
+    end
     @@region = options.has_key?(:region) ? options[:region] : @@region
+
     Aws.config.update({:region => @@region})
+    @@general = Aws::EC2::Resource.new
+    @@control = Aws::EC2::Client.new
   end
 
   def dispatch
     case @@command
     when 'up'
       createHives @@options
+    when 'attack'
+      hivesAttack @@options
     when 'down'
-      destroyHives @@options
+      destroyHives
     end
+  end
+
+  def hiveAttack(options)
   end
 
   # create a number of hives using user options
   def createHives(options)
     number_of_hive = options.has_key?(:number) ? options[:number].to_i : 1
-    ec2_general = Aws::EC2::Resource.new
     hive_options = {
+      :key_name      => nil,
       :image_id      => 'ami-cb49d7f1',
       :min_count     => number_of_hive,
       :max_count     => number_of_hive,
       :instance_type => 't1.micro'
     }
     hive_options.merge!(options.select {|k,v| hive_options.has_key?(k)})
-    @@hives = ec2_general.create_instances hive_options
+    @@hives = @@general.create_instances hive_options
     puts "%i hives are being built" % number_of_hive
-    ec2_general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => @@hives.map(&:id)})
+    @@general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => @@hives.map(&:id)})
     checkHivesStatus
+    writeServerList options[:username], options[:key], options[:region], @@hives.map(&:id)
   end
 
-  def destroyHives(options)
-
+  # tear down all running hives
+  def destroyHives
+    instances = readServerList ? readServerList[:instances] : []
+    if not instances.empty?
+      @@control.terminate_instances instance_ids: instances
+      removeServerList
+    end
+    puts 'All hives are teared down!'
   end
 
   private
@@ -69,11 +93,10 @@ class Hq
 
   # check over status of hives
   def checkHivesStatus
-    ec2_control = Aws::EC2::Client.new
     hives_built = []
     filters = [{:name => 'instance-state-name', :values => ['pending', 'running']}]
     while hives_built.count != @@hives.count do
-      statuses = ec2_control.describe_instance_status instance_ids: @@hives.map(&:id), include_all_instances: true, filters: filters
+      statuses = @@control.describe_instance_status instance_ids: @@hives.map(&:id), include_all_instances: true, filters: filters
       statuses.each do |response|
         response[:instance_statuses].each do |instance|
           building = instance[:instance_state].name == 'running' ? false : true
