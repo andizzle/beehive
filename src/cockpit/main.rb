@@ -38,25 +38,31 @@ opt_parser = OptionParser.new do |opt|
     # build options depends on command
     case command
     when 'attack'
-      opt.on('-n', '--number [INTEGER]', 'Number of attacks to launch') do |number|
-        options[:number] = number
+      opt.on('-n', '--number [INTEGER]', 'Number of total attacks to launch.') do |value|
+        options[:number] = value
+      end
+      opt.on('-b', '--bees [INTEGER]', 'Number of concurrent connections to make to the target.') do |value|
+        options[:bees] = value
       end
     when 'up'
-      opt.on('-r', '--region [STRING]', 'Region the hive will be built') do |region|
-        options[:region] = region
+      opt.on('-r', '--region [STRING]', 'Region the hive will be built.') do |value|
+        options[:region] = value
       end
-      opt.on('-n', '--number [INTEGER]', 'Number of hive to destroy') do |number|
-        options[:number] = number
+      opt.on('-n', '--number [INTEGER]', 'Number of hive to start.') do |value|
+        options[:number] = value
       end
-      opt.on('-i', '--image_id [STRING]', 'The ID of the AMI') do |image_id|
-        options[:image_id] = image_id
+      opt.on('-u', '--username [STRING]', 'The ssh username name to use to connect to the new servers.') do |value|
+        options[:username] = value
+      end
+      opt.on('-k', '--key [STRING]', 'The ssh key pair name to use to connect to the new servers.') do |value|
+        options[:key_name] = value
+      end
+      opt.on('-i', '--image_id [STRING]', 'The ID of the AMI.') do |value|
+        options[:image_id] = value
       end
     when 'scale'
-      opt.on('-n', '--number', 'Number of hive to destroy') do |number|
-        options[:number] = number
-      end
-      opt.on('-b', '--bees', 'Number of bees to retrieve') do |bees|
-        options[:bees] = bees
+      opt.on('-n', '--number', 'Number of hive to scale to.') do |value|
+        options[:number] = value
       end
     end
   end
