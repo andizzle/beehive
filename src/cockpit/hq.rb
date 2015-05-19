@@ -46,6 +46,27 @@ class Hq
 
   private
 
+  def readServerList
+    if not ::File.exist? STATE_FILE
+      return false
+    end
+    server_state = ::IO.readlines(STATE_FILE).map! {|l| l.strip}
+    {:username => server_state[0], :key => server_state[1], :region => server_state[2], :instances => server_state[3..-1]}
+  end
+
+  def writeServerList(username, key, region, instances)
+    ::File.open(STATE_FILE, 'w') do |f|
+      f.write("%s\n" % username)
+      f.write("%s\n" % key)
+      f.write("%s\n" % region)
+      f.write(instances.join("\n"))
+    end
+  end
+
+  def removeServerList
+    ::File.delete STATE_FILE
+  end
+
   # check over status of hives
   def checkHivesStatus
     ec2_control = Aws::EC2::Client.new
