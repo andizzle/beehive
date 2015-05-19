@@ -2,12 +2,15 @@ require 'aws-sdk'
 
 class Hq
 
+  @@state = nil
   @@general = nil
   @@control = nil
   @@command = nil
   @@options = {}
   @@hives = []
   @@region = 'us-east-1'
+  @@username = nil
+  @@key_name = nil
 
   STATE_FILE = File.expand_path('~/.hives')
 
@@ -15,9 +18,12 @@ class Hq
     @@command = command
     @@options = options
 
-    state = readServerList
-    if state and state.has_key? :region
-      @@region = state[:region]
+    @@state = readServerList
+    if @@state and @@state.has_key? :region
+      @@username = @@state[:username]
+      @@key_name = @@state[:key_name]
+      @@region = @@state[:region]
+      @@hives = @@state[:instances]
     end
     @@region = options.has_key?(:region) ? options[:region] : @@region
 
@@ -32,8 +38,24 @@ class Hq
       createHives @@options
     when 'attack'
       hivesAttack @@options
+    when 'scale'
+      scaleHives @@options
     when 'down'
       destroyHives
+    end
+  end
+
+  def scaleHives(options)
+    if @@state.nil?
+      abort 'Perhaps build some hives first?'
+    end
+    number_of_hive = options.has_key?(:number) ? options[:number].to_i : 1
+    if @@hives.count == number_of_hive
+      abort 'No hives scaled'
+    elsif @@hives.count > number_of_hive
+      destroyHives @@hives[number_of_hive..-1]
+    else
+      #createHives
     end
   end
 
@@ -45,27 +67,33 @@ class Hq
     number_of_hive = options.has_key?(:number) ? options[:number].to_i : 1
     hive_options = {
       :key_name      => nil,
-      :image_id      => 'ami-cb49d7f1',
+      :image_id      => nil,
       :min_count     => number_of_hive,
       :max_count     => number_of_hive,
       :instance_type => 't1.micro'
     }
     hive_options.merge!(options.select {|k,v| hive_options.has_key?(k)})
-    @@hives = @@general.create_instances hive_options
+    hives = @@general.create_instances hive_options
     puts "%i hives are being built" % number_of_hive
-    checkHivesStatus
-    @@general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => @@hives.map(&:id)})
-    writeServerList options[:username], options[:key], options[:region], @@hives.map(&:id)
+    checkHivesStatus hives
+    @@general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => hives.map(&:id)})
+    writeServerList options[:username], options[:key_name], options[:region], hives.map(&:id)
   end
 
   # tear down all running hives
-  def destroyHives
-    instances = readServerList ? readServerList[:instances] : []
+  def destroyHives instances = []
+    instances = instances.empty? ? @@hives : instances
     if not instances.empty?
       @@control.terminate_instances instance_ids: instances
-      removeServerList
+      if instances.count == @@hives.count
+        removeServerList
+      else
+        writeServerList @@username, @@key_name, @@region, @@hives.reject {|item| instances.include? item}
+      end
+    else
+      abord 'Perhaps build some hives first?'
     end
-    puts 'All hives are teared down!'
+    puts '%i hives are teared down!' % instances.count
   end
 
   private
@@ -92,11 +120,11 @@ class Hq
   end
 
   # check over status of hives
-  def checkHivesStatus
+  def checkHivesStatus(hives)
     hives_built = []
     filters = [{:name => 'instance-state-name', :values => ['pending', 'running']}]
-    while hives_built.count != @@hives.count do
-      statuses = @@control.describe_instance_status instance_ids: @@hives.map(&:id), include_all_instances: true, filters: filters
+    while hives_built.count != hives.count do
+      statuses = @@control.describe_instance_status instance_ids: hives.map(&:id), include_all_instances: true, filters: filters
       statuses.each do |response|
         response[:instance_statuses].each do |instance|
           building = instance[:instance_state].name == 'running' ? false : true
