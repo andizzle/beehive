@@ -17,13 +17,13 @@ class Hq
   def initialize(command, options={})
     @@command = command
     @@options = options
-
     @@state = readServerList
     if @@state and @@state.has_key? :region
       @@username = @@state[:username]
       @@key_name = @@state[:key_name]
       @@region = @@state[:region]
       @@hives = @@state[:instances]
+      @@image_id = @@state[:image_id]
     end
     @@region = options.has_key?(:region) ? options[:region] : @@region
 
@@ -53,9 +53,10 @@ class Hq
     if @@hives.count == number_of_hive
       abort 'No hives scaled'
     elsif @@hives.count > number_of_hive
-      destroyHives @@hives[number_of_hive..-1]
+      destroyHives number_of_hive > 0 ? @@hives[number_of_hive..-1] : {}
     else
-      #createHives
+      options = {:number => number_of_hive - @@hives.count, :username => @@username, :region => @@region, :key_name => @@key_name, :image_id => @@image_id}
+      createHives options
     end
   end
 
@@ -75,9 +76,9 @@ class Hq
     hive_options.merge!(options.select {|k,v| hive_options.has_key?(k)})
     hives = @@general.create_instances hive_options
     puts "%i hives are being built" % number_of_hive
+    writeServerList options[:username], options[:key_name], options[:region], options[:image_id], hives.map(&:id) + @@hives
     checkHivesStatus hives
     @@general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => hives.map(&:id)})
-    writeServerList options[:username], options[:key_name], options[:region], hives.map(&:id)
   end
 
   # tear down all running hives
@@ -88,7 +89,7 @@ class Hq
       if instances.count == @@hives.count
         removeServerList
       else
-        writeServerList @@username, @@key_name, @@region, @@hives.reject {|item| instances.include? item}
+        writeServerList @@username, @@key_name, @@region, @@image_id, @@hives.reject {|item| instances.include? item}
       end
     else
       abord 'Perhaps build some hives first?'
@@ -103,14 +104,15 @@ class Hq
       return false
     end
     server_state = ::IO.readlines(STATE_FILE).map! {|l| l.strip}
-    {:username => server_state[0], :key => server_state[1], :region => server_state[2], :instances => server_state[3..-1]}
+    {:username => server_state[0], :key_name => server_state[1], :region => server_state[2], :image_id => server_state[3], :instances => server_state[4..-1]}
   end
 
-  def writeServerList(username, key, region, instances)
+  def writeServerList(username, key, region, image_id, instances)
     ::File.open(STATE_FILE, 'w') do |f|
       f.write("%s\n" % username)
       f.write("%s\n" % key)
       f.write("%s\n" % region)
+      f.write("%s\n" % image_id)
       f.write(instances.join("\n"))
     end
   end
