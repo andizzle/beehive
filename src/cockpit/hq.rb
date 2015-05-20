@@ -38,24 +38,6 @@ class Hq
     end
   end
 
-  def scaleHives(options)
-    if @@state.nil?
-      abort 'Perhaps build some hives first?'
-    end
-    number_of_hive = options.has_key?(:number) ? options[:number].to_i : 1
-    if @@hives.count == number_of_hive
-      abort 'No hives scaled'
-    elsif @@hives.count > number_of_hive
-      destroyHives number_of_hive > 0 ? @@hives[number_of_hive..-1] : {}
-    else
-      options = {:number => number_of_hive - @@hives.count, :image_id => @@image_id}
-      createHives @@state.merge options
-    end
-  end
-
-  def hiveAttack(options)
-  end
-
   # create a number of hives using user options
   def createHives(options)
     number_of_hive = options.has_key?(:number) ? options[:number].to_i : 1
@@ -71,7 +53,26 @@ class Hq
     puts "%i hives are being built" % number_of_hive
     writeServerList options[:username], options[:key_name], options[:region], options[:image_id], hives.map(&:id) + @@hives
     checkHivesStatus hives
+    # tagging happens after the instance is ready
     @@general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => hives.map(&:id)})
+  end
+
+  def hiveAttack(options)
+  end
+
+  def scaleHives(options)
+    if @@state.nil?
+      abort 'Perhaps build some hives first?'
+    end
+    number_of_hive = options.has_key?(:number) ? options[:number].to_i : 1
+    if @@hives.count == number_of_hive
+      abort 'No hives scaled'
+    elsif @@hives.count > number_of_hive
+      destroyHives number_of_hive > 0 ? @@hives[number_of_hive..-1] : {}
+    else
+      options = {:number => number_of_hive - @@hives.count, :image_id => @@image_id}
+      createHives @@state.merge options
+    end
   end
 
   # tear down all running hives
