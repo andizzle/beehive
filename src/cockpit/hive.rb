@@ -13,28 +13,35 @@ class Hive
     ::Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
       b_no = 1
       attacks = []
+
+      # start an attack for every bee
       option[:bees].to_i.times do
         option[:b_no] = b_no
+
+        # build the command
         benchmark_command = 'ab -r -n %{number} -c %{concurrent} -e /root/%{b_no}.csv "%{url}"' % option
         puts "Bee %s-%s has started the attack!\n" % [@instance_id, b_no]
-        ssh.open_channel do |cha|
+
+        #open a new channel and run the container
+        attacks << ssh.open_channel do |cha|
           cha.exec 'docker run -v /home/ubuntu/results:/root andizzle/debian %s' % benchmark_command do |ch, success|
+
             raise "could not execute command" unless success
-            # "on_data" is called when the process writes something to stdout
-            ch.on_data do |c, data|
-              #$stdout.print "Bee %s-%s has started the attack!\n" % [@instance_id, b_no]
-            end
+
             ch.on_close {
-              ssh.exec 'docker ps -aq -f status=exited | xargs docker rm'
-              puts "done!"
+              puts "Bee %s-%i is out of ammo!" % [@instance_id, ch.local_id.to_i + 1]
             }
           end
         end
-        b_no += 1
+
+        b_no += 1 # bee number increment
+
       end
+
       attacks.each do |attack|
         attack.wait
       end
+
     end
   end
 
