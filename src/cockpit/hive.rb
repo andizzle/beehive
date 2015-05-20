@@ -1,12 +1,18 @@
+require 'aws-sdk'
 require 'net/ssh'
 
 class Hive
 
-  def initialize(username, key, ip, instance_id)
+  @result = {}
+
+  def initialize(username, key, instance_id)
     @username = username
     @key = ::File.expand_path('~/.ssh/%s.pem' % key)
-    @ip = ip
+
+    # grab the instance ip and id
+    instance = Aws::EC2::Instance.new instance_id
     @instance_id = instance_id
+    @ip = instance.public_ip_address
   end
 
   def attack(option)
@@ -28,6 +34,10 @@ class Hive
 
             raise "could not execute command" unless success
 
+            ch.on_data { |c, data|
+
+            }
+
             ch.on_close {
               puts "Bee %s-%i is out of ammo!" % [@instance_id, ch.local_id.to_i + 1]
             }
@@ -36,13 +46,19 @@ class Hive
 
         b_no += 1 # bee number increment
 
-      end
+      end #end of attack session creation
 
       attacks.each do |attack|
         attack.wait
       end
 
     end
+  end
+
+  def report
+  end
+
+  def parse_ab_data(data)
   end
 
 end

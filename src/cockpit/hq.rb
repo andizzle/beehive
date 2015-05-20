@@ -64,8 +64,7 @@ class Hq
     threads = []
     @@hives.each do |instance_id|
       threads << ::Thread.new do
-        instance = Aws::EC2::Instance.new instance_id
-        hive = Hive.new @@username, @@key_name, instance.public_ip_address, instance_id
+        hive = Hive.new @@username, @@key_name, instance_id
         hive.attack options
       end
     end
