@@ -1,4 +1,5 @@
 require 'aws-sdk'
+require './hive'
 
 class Hq
 
@@ -46,7 +47,8 @@ class Hq
       :image_id      => nil,
       :min_count     => number_of_hive,
       :max_count     => number_of_hive,
-      :instance_type => 't1.micro'
+      :instance_type => 't1.micro',
+      :virtualization-type => 'hive'
     }
     hive_options.merge!(options.select {|k,v| hive_options.has_key?(k)})
     hives = @@general.create_instances hive_options
@@ -57,7 +59,17 @@ class Hq
     @@general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => hives.map(&:id)})
   end
 
-  def hiveAttack(options)
+  # start the attack simultaneously.
+  def hivesAttack(options)
+    threads = []
+    @@hives.each do |instance_id|
+      threads << ::Thread.new do
+        instance = Aws::EC2::Instance.new instance_id
+        hive = Hive.new @@username, @@key_name, instance.public_ip_address, instance_id
+        hive.attack options
+      end
+    end
+    threads.each {|t| t.join}
   end
 
   def scaleHives(options)

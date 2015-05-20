@@ -41,8 +41,14 @@ opt_parser = OptionParser.new do |opt|
       opt.on('-n', '--number [INTEGER]', 'Number of total attacks to launch.') do |value|
         options[:number] = value
       end
+      opt.on('-c', '--concurrent [INTEGER]', 'The number of concurrent connections to make to the target (default: 100)..') do |value|
+        options[:concurrent] = value
+      end
       opt.on('-b', '--bees [INTEGER]', 'Number of concurrent connections to make to the target.') do |value|
         options[:bees] = value
+      end
+      opt.on('-u', '--url [STRING]', 'URL of the target to attack.') do |value|
+        options[:url] = value
       end
     when 'up'
       opt.on('-r', '--region [STRING]', 'Region the hive will be built.') do |value|
