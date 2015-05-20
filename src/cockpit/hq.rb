@@ -18,13 +18,6 @@ class Hq
     @@command = command
     @@options = options
     @@state = readServerList
-    if @@state and @@state.has_key? :region
-      @@username = @@state[:username]
-      @@key_name = @@state[:key_name]
-      @@region = @@state[:region]
-      @@hives = @@state[:instances]
-      @@image_id = @@state[:image_id]
-    end
     @@region = options.has_key?(:region) ? options[:region] : @@region
 
     Aws.config.update({:region => @@region})
@@ -55,8 +48,8 @@ class Hq
     elsif @@hives.count > number_of_hive
       destroyHives number_of_hive > 0 ? @@hives[number_of_hive..-1] : {}
     else
-      options = {:number => number_of_hive - @@hives.count, :username => @@username, :region => @@region, :key_name => @@key_name, :image_id => @@image_id}
-      createHives options
+      options = {:number => number_of_hive - @@hives.count, :image_id => @@image_id}
+      createHives @@state.merge options
     end
   end
 
@@ -104,16 +97,29 @@ class Hq
       return false
     end
     server_state = ::IO.readlines(STATE_FILE).map! {|l| l.strip}
-    {:username => server_state[0], :key_name => server_state[1], :region => server_state[2], :image_id => server_state[3], :instances => server_state[4..-1]}
+    begin
+      @@username = server_state[0]
+      @@key_name = server_state[1]
+      @@region   = server_state[2]
+      @@image_id = server_state[3]
+      @@hives    = server_state[4..-1]
+    rescue
+      abort 'A problem occured when reading hives'
+    end
+    {:username => @@username, :key_name => @@key_name, :region => @@region, :image_id => @@image_id, :instances => @@hives}
   end
 
   def writeServerList(username, key, region, image_id, instances)
-    ::File.open(STATE_FILE, 'w') do |f|
-      f.write("%s\n" % username)
-      f.write("%s\n" % key)
-      f.write("%s\n" % region)
-      f.write("%s\n" % image_id)
-      f.write(instances.join("\n"))
+    begin
+      ::File.open(STATE_FILE, 'w') do |f|
+        f.write("%s\n" % username)
+        f.write("%s\n" % key)
+        f.write("%s\n" % region)
+        f.write("%s\n" % image_id)
+        f.write(instances.join("\n"))
+      end
+    rescue
+      abort 'Failed to written down hives details'
     end
   end
 
@@ -140,5 +146,4 @@ class Hq
       sleep(1)
     end
   end
-
 end
