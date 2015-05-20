@@ -12,6 +12,7 @@ class Hive
   def attack(option)
     ::Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
       b_no = 1
+      attacks = []
       option[:bees].to_i.times do
         option[:b_no] = b_no
         benchmark_command = 'ab -r -n %{number} -c %{concurrent} -e /root/%{b_no}.csv "%{url}"' % option
@@ -30,6 +31,9 @@ class Hive
           end
         end
         b_no += 1
+      end
+      attacks.each do |attack|
+        attack.wait
       end
     end
   end
