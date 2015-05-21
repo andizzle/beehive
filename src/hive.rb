@@ -20,47 +20,26 @@ module Fleet
       data = {}
 
       ::Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
-        b_no = 1
-        attacks = []
 
-        # start an attack for every bee
-        option[:bees].to_i.times do
-          option[:b_no] = b_no
+        # add new ab command to ab.sh
+        benchmark_command = 'ab -r -n %{number} -c %{concurrent} "%{url}" >> /root/results/ab.out' % option
+        create_exec = ssh.open_channel do |cha|
+          cha.exec 'echo "%s" > /home/ubuntu/ab.sh' % benchmark_command do |ch, success|
 
-          # build the command
-          benchmark_command = 'ab -r -n %{number} -c %{concurrent} -e /root/%{b_no}.csv "%{url}"' % option
-          puts "Bee %s-%s has started the attack!\n" % [@instance_id, b_no]
+            raise "could not execute command" unless success
 
-          #open a new channel and run the container
-          attacks << ssh.open_channel do |cha|
-            cha.exec 'docker run -v /home/ubuntu/results:/root andizzle/debian %s' % benchmark_command do |ch, success|
-
-              raise "could not execute command" unless success
-
-              ch.on_data { |c, output|
-                if data.has_key? c.local_id
-                  data[c.local_id].merge! Fleet.parse_ab_data(output)
-                else
-                  data[c.local_id] = Fleet.parse_ab_data(output)
-                end
-              }
-
-              ch.on_close {
-                puts "Bee %s-%i is out of ammo!" % [@instance_id, ch.local_id.to_i + 1]
-              }
-            end
           end
-
-          b_no += 1 # bee number increment
-
-        end #end of attack session creation
-
-        attacks.each do |attack|
-          attack.wait
         end
 
+        create_exec.wait
+
+        # build the command
+        #open a new channel and run the container
+        attack = _attack_command ssh, option
+        attack.wait
+
         # remove all exited containers
-        attacks << ssh.open_channel do |cha|
+        ssh.open_channel do |cha|
           cha.exec 'docker ps -aq -f status=exited | xargs docker rm' do |ch, success|
             raise "could not execute command" unless success
           end
@@ -71,5 +50,14 @@ module Fleet
       Fleet.report data
     end
 
+    def _attack_command(ssh, option)
+      ssh.open_channel do |cha|
+        cha.exec 'docker-compose -f /home/ubuntu/docker-compose.yml scale ab=%s' % option[:bees] do |ch, success|
+
+          raise "could not execute command" unless success
+
+        end
+      end
+    end
   end
 end
