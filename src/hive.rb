@@ -18,6 +18,7 @@ module Fleet
 
     def attack(option)
       data = {}
+
       ::Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
         b_no = 1
         attacks = []
@@ -68,7 +69,6 @@ module Fleet
       end
 
       Fleet.report data
-
     end
 
   end

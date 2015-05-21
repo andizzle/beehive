@@ -82,7 +82,7 @@ module Fleet
       end
       threads.each {|t| t.join}
 
-      puts "\n" * 4
+      puts "\n"
       Fleet.print_report Fleet.report(data)
     end
 
