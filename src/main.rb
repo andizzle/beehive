@@ -83,7 +83,7 @@ if __FILE__ == $0
     if ['up', 'attack', 'scale'].include? command and options.empty?  # if up, attack and scale does not have any instructions, print help
       puts opt_parser
     else  # dispatch the requst
-      hq = Hq.new(command, options)
+      hq = Fleet::Hq.new(command, options)
       hq.dispatch
     end
   end
