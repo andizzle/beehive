@@ -16,6 +16,7 @@ class Hive
   end
 
   def attack(option)
+    data = {}
     ::Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
       b_no = 1
       attacks = []
@@ -34,8 +35,12 @@ class Hive
 
             raise "could not execute command" unless success
 
-            ch.on_data { |c, data|
-
+            ch.on_data { |c, output|
+              if data.has_key? c.local_id
+                data[c.local_id].merge! parse_ab_data(output)
+              else
+                data[c.local_id] = parse_ab_data(output)
+              end
             }
 
             ch.on_close {
@@ -52,13 +57,49 @@ class Hive
         attack.wait
       end
 
+      # remove all exited containers
+      attacks << ssh.open_channel do |cha|
+        cha.exec 'docker ps -aq -f status=exited | xargs docker rm' do |ch, success|
+          raise "could not execute command" unless success
+        end
+      end
+
     end
+
+    report data
+
   end
 
-  def report
+  def report(data)
+
   end
 
   def parse_ab_data(data)
+    result = {}
+    headlines = [
+      'Time taken for tests',
+      'Complete requests',
+      'Failed requests',
+      'Non-2xx responses',
+      'Total transferred',
+      'HTML transferred',
+      'Requests per second',
+      'Time per request',
+      'Time per request',
+      'Transfer rate'
+    ];
+
+    # parse each line with the matched heading
+    data.each_line do |line|
+      if line.start_with?(*headlines)
+        parts = line.partition(':')
+        head = parts.first
+        body = parts.last.strip.split(' ', 2)
+        result[head] = body
+      end
+    end
+
+    result
   end
 
 end
