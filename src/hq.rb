@@ -47,8 +47,7 @@ class Hq
       :image_id      => nil,
       :min_count     => number_of_hive,
       :max_count     => number_of_hive,
-      :instance_type => 't1.micro',
-      :virtualization-type => 'hive'
+      :instance_type => 't2.micro'
     }
     hive_options.merge!(options.select {|k,v| hive_options.has_key?(k)})
     hives = @@general.create_instances hive_options
