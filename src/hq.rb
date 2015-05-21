@@ -89,7 +89,17 @@ class Hq
   def destroyHives instances = []
     instances = instances.empty? ? @@hives : instances
     if not instances.empty?
-      @@control.terminate_instances instance_ids: instances
+
+      # attemp the terminate ec2 instances
+      begin
+        @@control.terminate_instances instance_ids: instances
+      rescue Aws::EC2::Errors::InvalidInstanceIDNotFound => e
+        # for mismatches, terminate what we can
+        instances_2b_removed = instances - e.to_s.match(/\'[^']*\'/)[0].split(',').map! {|x| x.strip.tr_s("'", "")}
+        @@control.terminate_instances instance_ids: instances_2b_removed
+      rescue Aws::EC2::Errors::InvalidInstanceIDMalformed
+      end
+
       if instances.count == @@hives.count
         removeServerList
       else
