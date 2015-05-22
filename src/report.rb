@@ -43,7 +43,8 @@ module Fleet
       elsif ['Complete requests', 'Failed requests', 'Total transferred', 'HTML transferred', 'Non-2xx responses'].include? key
         value[0] = value[0].inject{|sum, x| sum + x}
       else
-        value[0] = (value[0].inject{|sum, x| sum + x} / result.count).round(2)
+        count = value[0].count
+        value[0] = (value[0].inject{|sum, x| sum + x} / count).round(2)
       end
       result[key] = value
     end
