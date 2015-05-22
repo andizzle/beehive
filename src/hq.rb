@@ -66,23 +66,28 @@ module Fleet
       threads = []
       attack_options = []
 
+      puts "Preparing the attack:"
+      puts "%s bees will attack %s times, %s at a time" % [options[:bees], options[:bees].to_i * options[:number].to_i, options[:concurrent]]
       remains = options[:bees].to_i % @@hives.count
       options[:bees] = options[:bees].to_i / @@hives.count
-      @@hives.each_with_index do |instance_id, index|
 
+      puts "Hive              Bees"
+      @@hives.each_with_index do |instance_id, index|
         if  index == @@hives.size - 1
           options[:bees] += remains
         end
         attack_options << options.clone
+        puts '%s        %s' % [instance_id, options[:bees]]
 
         threads << ::Thread.new do
           hive = Hive.new @@username, @@key_name, instance_id
           data[instance_id] = hive.attack attack_options[index]
         end
       end
-      threads.each {|t| t.join}
-
       puts "\n"
+      threads.each {|t| t.join}
+      puts "\n"
+
       Fleet.print_report Fleet.report(data)
     end
 
