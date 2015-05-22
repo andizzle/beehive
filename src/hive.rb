@@ -37,7 +37,7 @@ module Fleet
 
         # parse the result
         index = 1
-        data.split('..done').each do |d|
+        data.split('Connection Times (ms)').each do |d|
           data = Fleet.parse_ab_data d
           if data.any?
             result[index] = data
@@ -49,16 +49,15 @@ module Fleet
         _clean ssh
 
       end
-
       Fleet.report result
     end
 
     private
     # add new ab command to ab.sh
     def _prepare(ssh, option)
-      benchmark_command = 'ab -r -n %{number} -c %{concurrent} "%{url}" >> /root/ab.out' % option
+      benchmark_command = 'ab -s 60 -r -n %{number} -c %{concurrent} "%{url}" >> /root/${HOSTNAME}.out' % option
       ssh.open_channel do |cha|
-        cha.exec 'touch %{path}/ab.out && touch %{path}/ab.sh && echo "%{cmd}" > %{path}/ab.sh' % {:cmd => benchmark_command, :path => HOME_DIR} do |ch, success|
+        cha.exec "touch %{path}/ab.sh && echo '%{cmd}' > %{path}/ab.sh" % {:cmd => benchmark_command, :path => HOME_DIR} do |ch, success|
           raise "could not execute command" unless success
         end
       end
@@ -82,7 +81,7 @@ module Fleet
 
     def _collection_info(ssh, data_pool)
       ssh.open_channel do |cha|
-        cha.exec 'cat %s/ab.out' % HOME_DIR do |ch, success|
+        cha.exec 'find %s -name "*.out" -exec cat {} \;' % HOME_DIR do |ch, success|
           raise "could not execute command" unless success
           ch.on_data do |c, data|
             data_pool << data
@@ -94,7 +93,7 @@ module Fleet
     # clean up the battlefield
     def _clean(ssh)
       ssh.open_channel do |cha|
-        cha.exec 'docker ps -aq -f status=exited | xargs docker rm && > %s/ab.out' % HOME_DIR do |ch, success|
+        cha.exec 'docker ps -aq -f status=exited | xargs docker rm && find /home/ubuntu -name "*.out" -exec rm {} \;' % HOME_DIR do |ch, success|
           raise "could not execute command" unless success
         end
       end
