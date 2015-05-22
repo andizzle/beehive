@@ -4,6 +4,7 @@ require './report'
 
 module Fleet
   class Hive
+    HOME_DIR = '/home/ubuntu'
     @result = {}
 
     def initialize(username, key, instance_id)
@@ -17,47 +18,75 @@ module Fleet
     end
 
     def attack(option)
-      data = {}
+      result = {}
 
       ::Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
 
         # prepare the attack
-        create_exec = _prepare ssh, option
-        create_exec.wait
+        create_cmd = _prepare ssh, option
+        create_cmd.wait
 
         # build the command
         #open a new channel and run the container
-        attack = _execute ssh, option
-        attack.wait
+        attack_cmd = _execute ssh, option
+        attack_cmd.wait
+
+        data = ""
+        collection_cmd = _collection_info ssh, data
+        collection_cmd.wait
+
+        # parse the result
+        index = 1
+        data.split('..done').each do |d|
+          data = Fleet.parse_ab_data d
+          if data.any?
+            result[index] = data
+            index += 1
+          end
+        end
 
         # remove all exited containers
         _clean ssh
 
       end
 
-      Fleet.report data
+      Fleet.report result
     end
 
     private
     # add new ab command to ab.sh
     def _prepare(ssh, option)
-      benchmark_command = 'ab -r -n %{number} -c %{concurrent} "%{url}" >> /root/results/ab.out' % option
+      benchmark_command = 'ab -r -n %{number} -c %{concurrent} "%{url}" >> /root/ab.out' % option
       ssh.open_channel do |cha|
-        cha.exec 'echo "%s" > /home/ubuntu/ab.sh' % benchmark_command do |ch, success|
-
+        cha.exec 'touch %{path}/ab.out && touch %{path}/ab.sh && echo "%{cmd}" > %{path}/ab.sh' % {:cmd => benchmark_command, :path => HOME_DIR} do |ch, success|
           raise "could not execute command" unless success
-
         end
       end
     end
 
     # start the attack
     def _execute(ssh, option)
+      puts "Hive %s is starting it's attack" % @instance_id
       ssh.open_channel do |cha|
-        cha.exec 'docker-compose -f /home/ubuntu/docker-compose.yml scale ab=%s' % option[:bees] do |ch, success|
-
+        # 'for i in {1..%s}; do nohup docker run -v /home/ubuntu:/root andizzle/debian bash /root/ab.sh; done'
+        cmd = ['docker run -v /home/ubuntu:/root andizzle/debian bash /root/ab.sh'] * option[:bees]
+        cha.exec cmd.join ' & ' do |ch, success|
           raise "could not execute command" unless success
+          ch.on_data do |c, data|
+            puts data
+          end
+          ch.on_close { puts "Hive %s has finished it's attack!" % @instance_id}
+        end
+      end
+    end
 
+    def _collection_info(ssh, data_pool)
+      ssh.open_channel do |cha|
+        cha.exec 'cat %s/ab.out' % HOME_DIR do |ch, success|
+          raise "could not execute command" unless success
+          ch.on_data do |c, data|
+            data_pool << data
+          end
         end
       end
     end
@@ -65,7 +94,7 @@ module Fleet
     # clean up the battlefield
     def _clean(ssh)
       ssh.open_channel do |cha|
-        cha.exec 'docker ps -aq -f status=exited | xargs docker rm' do |ch, success|
+        cha.exec 'docker ps -aq -f status=exited | xargs docker rm && > %s/ab.out' % HOME_DIR do |ch, success|
           raise "could not execute command" unless success
         end
       end
