@@ -51,7 +51,6 @@ module Fleet
     result
   end
 
-
   def Fleet.parse_ab_data(data)
     result = {}
 
@@ -63,6 +62,10 @@ module Fleet
         body = parts.last.strip.split(' ', 2)
         result[head] = body
       end
+    end
+
+    if not result.has_key? 'Time per request'
+      return {}
     end
 
     result
