@@ -1,7 +1,5 @@
-#!/usr/bin/env ruby
-
 require 'optparse'
-require './hornet/hq'
+require 'hornet/hq'
 
 options = {}
 command = nil
@@ -22,7 +20,7 @@ DOC
 
 docs = {:up => up, :attack => attack, :scale => scale}
 
-opt_parser = OptionParser.new do |opt|
+OptParser = OptionParser.new do |opt|
   opt.banner = "Usage: hive (%s) [options] [parameters]" % commands.join('|')
 
   command = ARGV[0]
@@ -74,17 +72,18 @@ opt_parser = OptionParser.new do |opt|
   end
 end
 
-
-if __FILE__ == $0
-  if ARGV.empty?  # if they just trying out, print the cmd message
-    puts opt_parser
-  else
-    opt_parser.parse!  # parse the commpand
-    if ['up', 'attack', 'scale'].include? command and options.empty?  # if up, attack and scale does not have any instructions, print help
-      puts opt_parser
-    else  # dispatch the requst
-      hq = Fleet::Hq.new(command, options)
-      hq.dispatch
+class Hornet
+  def self.march
+    if ARGV.empty?  # if they just trying out, print the cmd message
+      puts OptParser
+    else
+      OptParser.parse!  # parse the commpand
+      if ['up', 'attack', 'scale'].include? command and options.empty?  # if up, attack and scale does not have any instructions, print help
+        puts OptParser
+      else  # dispatch the requst
+        hq = Fleet::Hq.new(command, options)
+        hq.dispatch
+      end
     end
   end
 end
