@@ -18,6 +18,7 @@ Scale = <<DOC
 Enter the usage and command options here
 DOC
 
+Docs = {:up => Up, :attack => Attack, :scale => Scale}
 
 class Hornet
   attr_accessor :command
@@ -28,7 +29,6 @@ class Hornet
     @options = {}
     @command = nil
     @parser = nil
-    @docs = {:up => Up, :attack => Attack, :scale => Scale}
   end
 
   def prepare
@@ -40,7 +40,7 @@ class Hornet
         opt.banner = "Usage: hive %s [options] [parameters]" % @command
         @command.to_sym
         if ['up', 'attack', 'scale'].include? @command
-          @docs[command.to_sym].each_line do |line|
+          Docs[command.to_sym].each_line do |line|
             opt.separator line
           end
         end
