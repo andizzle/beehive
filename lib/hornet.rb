@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'optparse'
-require './hq'
+require './hornet/hq'
 
 options = {}
 command = nil
