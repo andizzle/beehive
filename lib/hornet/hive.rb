@@ -1,6 +1,6 @@
 require 'aws-sdk'
 require 'net/ssh'
-require './report'
+require 'hornet/report'
 
 module Fleet
   class Hive

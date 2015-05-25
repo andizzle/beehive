@@ -1,6 +1,6 @@
 require 'aws-sdk'
-require './hive'
-require './report'
+require 'hornet/hive'
+require 'hornet/report'
 
 module Fleet
   class Hq
