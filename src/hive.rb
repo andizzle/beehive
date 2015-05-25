@@ -16,10 +16,12 @@ module Fleet
       @ip = instance.public_ip_address
     end
 
+    # attack the target, clean the previous attack result, preapre the attack and then start the attack
     def attack(option)
-      result = {}
-
       ::Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
+        # remove all exited containers
+        clean_cmd = _clean ssh
+        clean_cmd.wait
 
         # prepare the attack
         create_cmd = _prepare ssh, option
@@ -29,6 +31,14 @@ module Fleet
         #open a new channel and run the container
         attack_cmd = _execute ssh, option
         attack_cmd.wait
+      end
+    end
+
+    # connect to the instance and collect the results
+    def report
+      result = {}
+
+      ::Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
 
         data = ""
         collection_cmd = _collection_info ssh, data
@@ -44,10 +54,8 @@ module Fleet
           end
         end
 
-        # remove all exited containers
-        _clean ssh
-
       end
+
       Fleet.report result
     end
 

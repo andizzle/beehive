@@ -36,6 +36,8 @@ module Fleet
         hivesAttack @@options
       when 'scale'
         scaleHives @@options
+      when 'report'
+        hivesReport
       when 'down'
         destroyHives
       end
@@ -62,8 +64,7 @@ module Fleet
 
     # start the attack simultaneously.
     def hivesAttack(options)
-      data = {}
-      threads = []
+      attack_threads = []
       attack_options = []
 
       puts "Preparing the attack:"
@@ -73,21 +74,37 @@ module Fleet
 
       puts "Hive              Bees"
       @@hives.each_with_index do |instance_id, index|
-        if  index == @@hives.size - 1
+        if index == @@hives.size - 1
           options[:bees] += remains
         end
         attack_options << options.clone
         puts '%s        %s' % [instance_id, options[:bees]]
 
-        threads << ::Thread.new do
-          hive = Hive.new @@username, @@key_name, instance_id
-          data[instance_id] = hive.attack attack_options[index]
+        hive = Hive.new @@username, @@key_name, instance_id
+        attack_threads << ::Thread.new do
+          hive.attack attack_options[index]
         end
       end
+
       puts "\n"
-      threads.each {|t| t.join}
+      attack_threads.each {|t| t.join}
       puts "\n"
 
+      hivesReport
+    end
+
+    # collect report from every hive
+    def hivesReport
+      data = {}
+      report_threads = []
+      @@hives.each_with_index do |instance_id, index|
+        hive = Hive.new @@username, @@key_name, instance_id
+        report_threads << ::Thread.new do
+          data[instance_id] = hive.report
+        end
+      end
+
+      report_threads.each {|t| t.join}
       Fleet.print_report Fleet.report(data)
     end
 
