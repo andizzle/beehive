@@ -105,6 +105,7 @@ module Fleet
         end
       end
 
+      # create the report threads
       hives.each do |hive|
         report_threads << ::Thread.new do
           data[hive.instance_id] = hive.report
