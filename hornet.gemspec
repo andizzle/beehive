@@ -13,6 +13,6 @@ Gem::Specification.new do |spec|
   spec.summary     = 'Launch EC2 micro instances, each instance creates multiple docker containers to stress test your web applications.'
   spec.files       = ["lib/hornet.rb", "lib/hornet/hive.rb", "lib/hornet/hq.rb", "lib/hornet/report.rb", "bin/hornet"]
 
-  spec.add_runtime_dependency 'aws-sdk', '~> 1.1'
+  spec.add_runtime_dependency 'aws-sdk', '~> 2'
   spec.add_runtime_dependency 'net-ssh', '~> 2.9'
 end
