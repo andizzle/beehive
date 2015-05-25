@@ -64,6 +64,7 @@ module Fleet
 
     # start the attack simultaneously.
     def hivesAttack(options)
+      hives = []
       attack_threads = []
       attack_options = []
 
@@ -81,6 +82,7 @@ module Fleet
         puts '%s        %s' % [instance_id, options[:bees]]
 
         hive = Hive.new @@username, @@key_name, instance_id
+        hives << hive
         attack_threads << ::Thread.new do
           hive.attack attack_options[index]
         end
@@ -90,17 +92,22 @@ module Fleet
       attack_threads.each {|t| t.join}
       puts "\n"
 
-      hivesReport
+      hivesReport hives
     end
 
     # collect report from every hive
-    def hivesReport
+    def hivesReport(hives=[])
       data = {}
       report_threads = []
-      @@hives.each_with_index do |instance_id, index|
-        hive = Hive.new @@username, @@key_name, instance_id
+      if not hives.any?
+        @@hives.each_with_index do |instance_id, index|
+          hives << Hive.new(@@username, @@key_name, instance_id)
+        end
+      end
+
+      hives.each do |hive|
         report_threads << ::Thread.new do
-          data[instance_id] = hive.report
+          data[hive.instance_id] = hive.report
         end
       end
 
@@ -108,6 +115,7 @@ module Fleet
       Fleet.print_report Fleet.report(data)
     end
 
+    # scale hives up and down
     def scaleHives(options)
       if @@state.nil?
         abort 'Perhaps build some hives first?'

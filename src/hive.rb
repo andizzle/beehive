@@ -4,6 +4,7 @@ require './report'
 
 module Fleet
   class Hive
+    attr_accessor :instance_id
     HOME_DIR = '/home/ubuntu'
 
     def initialize(username, key, instance_id)
