@@ -9,7 +9,7 @@ module Fleet
 
     def initialize(username, key, instance_id)
       @username = username
-      @key = ::File.expand_path('~/.ssh/%s.pem' % key)
+      @key = File.expand_path('~/.ssh/%s.pem' % key)
 
       # grab the instance ip and id
       instance = Aws::EC2::Instance.new instance_id
@@ -19,7 +19,7 @@ module Fleet
 
     # attack the target, clean the previous attack result, preapre the attack and then start the attack
     def attack(option)
-      ::Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
+      Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
         # remove all exited containers
         clean_cmd = _clean ssh
         clean_cmd.wait
@@ -39,7 +39,7 @@ module Fleet
     def report
       result = {}
 
-      ::Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
+      Net::SSH.start(@ip, @username, :keys => [@key]) do |ssh|
 
         data = ""
         collection_cmd = _collection_info ssh, data
