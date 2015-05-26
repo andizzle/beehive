@@ -3,7 +3,7 @@ require 'hornet/hive'
 require 'hornet/report'
 
 module Fleet
-  class Hq
+  class Headquarter
 
     @@state = nil
     @@general = nil
@@ -83,7 +83,7 @@ module Fleet
 
         hive = Hive.new @@username, @@key_name, instance_id
         hives << hive
-        attack_threads << ::Thread.new do
+        attack_threads << Thread.new do
           hive.attack attack_options[index]
         end
       end
@@ -107,7 +107,7 @@ module Fleet
 
       # create the report threads
       hives.each do |hive|
-        report_threads << ::Thread.new do
+        report_threads << Thread.new do
           data[hive.instance_id] = hive.report
         end
       end
@@ -161,10 +161,10 @@ module Fleet
     private
 
     def readServerList
-      if not ::File.exist? STATE_FILE
+      if not File.exist? STATE_FILE
         return false
       end
-      server_state = ::IO.readlines(STATE_FILE).map! {|l| l.strip}
+      server_state = IO.readlines(STATE_FILE).map! {|l| l.strip}
       begin
         @@username = server_state[0]
         @@key_name = server_state[1]
@@ -179,7 +179,7 @@ module Fleet
 
     def writeServerList(username, key, region, image_id, instances)
       begin
-        ::File.open(STATE_FILE, 'w') do |f|
+        File.open(STATE_FILE, 'w') do |f|
           f.write("%s\n" % username)
           f.write("%s\n" % key)
           f.write("%s\n" % region)
@@ -192,7 +192,7 @@ module Fleet
     end
 
     def removeServerList
-      ::File.delete STATE_FILE
+      File.delete STATE_FILE
     end
 
     # check over status of hives
