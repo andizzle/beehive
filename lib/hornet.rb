@@ -1,103 +1,113 @@
 require 'optparse'
-require 'hornet/hq'
+require 'ostruct'
+require 'hornet/headquarter'
 
-Commands = %w(up attack down scale)
-
-Up = <<DOC
-
-Enter the usage and command options here
-DOC
-
-Attack = <<DOC
-
-Enter the usage and command options here
-DOC
-
-Scale = <<DOC
-
-Enter the usage and command options here
-DOC
-
-Docs = {:up => Up, :attack => Attack, :scale => Scale}
+Commands = {
+  'up'     => 'Spin up multiple EC2 micro instances to host bees.',
+  'attack' => 'Launch an attack against a target.',
+  'down'   => 'Terminate load testing servers.',
+  'scale'  => 'Adjust the number of load testing servers.',
+  'report' => 'Report the load testing result.',
+  'help'   => 'Print the help document.',
+}
 
 class Hornet
-  attr_accessor :command
-  attr_accessor :options
-  attr_accessor :parser
 
-  def initialize
-    @options = {}
-    @command = nil
-    @parser = nil
-  end
+  def self.parse(args)
+    command = args.first
+    options = OpenStruct.new
+    parser = OptionParser.new do |opt|
 
-  def prepare
-    @parser = OptionParser.new do |opt|
-      opt.banner = "Usage: hive (%s) [options] [parameters]" % Commands.join('|')
+      if not Commands.keys.include? command
+        opt.banner = "Usage: hornet (%s) [options]" % Commands.keys.join('|')
+      else
+        opt.banner = "Usage: hornet %s [options]" % command
 
-      @command = ARGV[0]
-      if !@command.nil? and Commands.include? @command
-        opt.banner = "Usage: hive %s [options] [parameters]" % @command
-        @command.to_sym
-        if ['up', 'attack', 'scale'].include? @command
-          Docs[command.to_sym].each_line do |line|
-            opt.separator line
-          end
+        if ['up', 'attack', 'scale'].include? command
+          opt.separator Commands[command]
         end
 
         # build options depends on command
-        case @command
-        when 'attack'
-          opt.on('-n', '--number [INTEGER]', 'Number of total attacks to launch.') do |value|
-            @options[:number] = value
+        case command
+        when 'attack', 'help'
+          opt.on('-n', '--number [NUMBER]', 'Number of total attacks to launch (default: 1000).') do |value|
+            options.number = value
           end
-          opt.on('-c', '--concurrent [INTEGER]', 'The number of concurrent connections to make to the target (default: 100)..') do |value|
-            @options[:concurrent] = value
+          opt.on('-c', '--concurrent [CONCURRENT]', 'The number of concurrent connections to make to the target (default: 100).') do |value|
+            options.concurrent = value
           end
-          opt.on('-b', '--bees [INTEGER]', 'Number of concurrent connections to make to the target.') do |value|
-            @options[:bees] = value
+          opt.on('-b', '--bees [BEES]', 'Number of containers to create (default: 1).') do |value|
+            options.bees = value
           end
-          opt.on('-u', '--url [STRING]', 'URL of the target to attack.') do |value|
-            @options[:url] = value
+          opt.on('-u', '--url [URL]', 'URL of the target to attack.') do |value|
+            options.url = value
           end
-        when 'up'
-          opt.on('-r', '--region [STRING]', 'Region the hive will be built.') do |value|
-            @options[:region] = value
+
+        when 'up', 'help'
+          opt.on('-r', '--region [REGION]', 'Region the server will be built (default: us-east-1d).') do |value|
+            options.region = value
           end
-          opt.on('-n', '--number [INTEGER]', 'Number of hive to start.') do |value|
-            @options[:number] = value
+          opt.on('-n', '--number [NUMBER]', 'Number of servers to start (default: 1).') do |value|
+            options.number = value
           end
-          opt.on('-u', '--username [STRING]', 'The ssh username name to use to connect to the new servers.') do |value|
-            @options[:username] = value
+          opt.on('-u', '--username [USERNAME]', 'The ssh username name to use to connect to the servers (default: ubuntu).') do |value|
+            options.username = value
           end
-          opt.on('-k', '--key [STRING]', 'The ssh key pair name to use to connect to the new servers.') do |value|
-            @options[:key_name] = value
+          opt.on('-k', '--key [KEY]', 'The ssh key pair name to use to connect to the servers.') do |value|
+            options.key_name = value
           end
-          opt.on('-i', '--image_id [STRING]', 'The ID of the AMI.') do |value|
-            @options[:image_id] = value
+          opt.on('-i', '--image_id [IMAGE_ID]', 'The ID of the AMI.') do |value|
+            options.image_id = value
           end
-        when 'scale'
-          opt.on('-n', '--number [INTEGER]', 'Number of hive to scale to.') do |value|
-            @options[:number] = value
+
+        when 'scale', 'help'
+          opt.on('-n', '--number [NUMBER]', 'Number of servers to scale to (default: 1).') do |value|
+            options.number = value
           end
         end
+
       end
     end
+
+    # don't parse anything if no command sepcified
+    if command.nil? or command == 'help'
+      abort parser.to_s
+    end
+    parser.parse!
+    options
   end
 
-  def self.march
-    hornet = Hornet.new
-    hornet.prepare
-    if ARGV.empty?  # if they just trying out, print the cmd message
-      puts hornet.parser
-    else
-      hornet.parser.parse!  # parse the commpand
-      if ['up', 'attack', 'scale'].include? hornet.command and hornet.options.empty?  # if up, attack and scale does not have any instructions, print help
-        puts hornet.parser
-      else  # dispatch the requst
-        hq = Fleet::Hq.new(hornet.command, hornet.options)
-        hq.dispatch
+  # validate options, abort if required options is missing
+  def self.validate_options(command, options)
+    ops = {}
+    begin
+      case command
+      when 'attack'
+        ops = {:number => 1000, :concurrent => 100, :bees => 1}.merge options.to_h
+        if not ops.has_key? :url
+          raise ArgumentError.new 'Missing argument: --url'
+        end
+      when 'up'
+        ops = {:region => 'us-east-1d', :username => 'ubuntu', :number => 1, :image_id => ''}.merge options.to_h
+        if not ops.has_key? :key
+          raise ArgumentError.new 'Missing argument: --key'
+        end
+      when 'scale'
+        ops = {:number => 1}.merge options.to_h
       end
+    rescue ArgumentError => msg
+      abort msg.to_s
+    end
+    OpenStruct.new ops
+  end
+
+  # move on to the next step.
+  def self.go(args, options)
+    command = args.first
+    if not command.nil?
+      Hornet.validate_options command, options
+      headquarter = Fleet::Headquarter.new(command, options.to_h)
+      headquarter.dispatch
     end
   end
 end

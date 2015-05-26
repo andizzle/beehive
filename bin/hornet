@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
 
 require 'hornet'
-Hornet.march
+options = Hornet.parse ARGV
+Hornet.go ARGV, options
