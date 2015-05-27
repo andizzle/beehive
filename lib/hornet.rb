@@ -10,6 +10,17 @@ Commands = {
   'report' => 'Report the load testing result.',
   'help'   => 'Print the help document.',
 }
+AMIs = {
+  'us-east-1'      => 'ami-fbb35590',
+  'us-west-1'      => 'ami-831cf4c7',
+  'us-west-2'      => 'ami-318eb201',
+  'sa-east-1'      => 'ami-9ba92886',
+  'eu-west-1'      => 'ami-094f3f7e',
+  'eu-central-1'   => 'ami-a67e47bb',
+  'ap-northeast-1' => 'ami-be73a2be',
+  'ap-southeast-1' => 'ami-2c19217e',
+  'ap-southeast-2' => 'ami-9b9de4a1'
+}
 
 class Hornet
 
@@ -101,7 +112,13 @@ class Hornet
           raise ArgumentError.new 'Missing argument: --url'
         end
       when 'up'
-        ops = {:region => 'us-east-1', :username => 'ubuntu', :number => 1, :image_id => 'ami-c3e997f9'}.merge options.to_h
+        ops = {:region => 'us-east-1', :username => 'ubuntu', :number => 1}.merge options.to_h
+        if not ops.has_key? :image_id
+          ops[:image_id] = AMIs[ops[:region]]
+        end
+        if not AMIs.keys.include? ops[:region]
+          raise ArgumentError.new 'Region must be in %s ' % AMIs.keys.join(', ')
+        end
         if not ops.has_key? :key_name
           raise ArgumentError.new 'Missing argument: --key'
         end
