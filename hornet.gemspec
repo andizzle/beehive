@@ -1,13 +1,13 @@
 Gem::Specification.new do |spec|
   spec.name               = "hornet"
-  spec.version            = "0.0.1.pre1"
+  spec.version            = "0.0.2"
   spec.default_executable = "hornet"
 
   spec.author      = "Andy Zhang"
   spec.email       = 'andizzle.zhang@gmail.com'
   spec.homepage    = 'https://github.com/andizzle/hornet'
   spec.license     = 'MIT'
-  spec.date        = '2015-05-25'
+  spec.date        = '2015-05-27'
 
   spec.description = 'Stress test your web apps.'
   spec.summary     = 'Launch EC2 micro instances, each instance creates multiple docker containers to stress test your web applications.'
