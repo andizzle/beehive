@@ -1,41 +1,37 @@
 require 'aws-sdk'
+require 'ostruct'
 require 'hornet/hive'
 require 'hornet/report'
 
 module Fleet
   class Headquarter
 
-    @@state = nil
-    @@general = nil
-    @@control = nil
-    @@command = nil
-    @@options = {}
-    @@hives = []
-    @@region = 'us-east-1'
-    @@username = nil
-    @@key_name = nil
-
     STATE_FILE = File.expand_path('~/.hives')
 
     def initialize(command, options={})
-      @@command = command
-      @@options = options
-      @@state = readServerList
-      @@region = options.has_key?(:region) ? options[:region] : @@region
+      @command = command
+      @options = options
 
-      Aws.config.update({:region => @@region})
-      @@general = Aws::EC2::Resource.new
-      @@control = Aws::EC2::Client.new
+      @state = OpenStruct.new options
+      @state.loaded = false
+
+      readServerState
+
+      if @state.region
+        Aws.config.update({:region => @state.region})
+        @ec2_resource = Aws::EC2::Resource.new
+        @ec2_client = Aws::EC2::Client.new
+      end
     end
 
     def dispatch
-      case @@command
+      case @command
       when 'up'
-        createHives @@options
+        createHives @options
       when 'attack'
-        hivesAttack @@options
+        hivesAttack @options
       when 'scale'
-        scaleHives @@options
+        scaleHives @options
       when 'report'
         hivesReport
       when 'down'
@@ -54,12 +50,17 @@ module Fleet
         :instance_type => 't2.micro'
       }
       hive_options.merge!(options.select {|k,v| hive_options.has_key?(k)})
-      hives = @@general.create_instances hive_options
+      hives = @ec2_resource.create_instances hive_options
       puts "%i hives are being built" % number_of_hive
-      writeServerList options[:username], options[:key_name], options[:region], options[:image_id], hives.map(&:id) + @@hives
+
+      # write the current state to the file
+      @state.hives = hives.map(&:id) + @state.hives.to_a
+      writeServerList
+
       checkHivesStatus hives
+
       # tagging happens after the instance is ready
-      @@general.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => hives.map(&:id)})
+      @ec2_resource.create_tags({:tags => [{:key => 'Name', :value => 'hive'}], :resources => hives.map(&:id)})
     end
 
     # start the attack simultaneously.
@@ -70,18 +71,18 @@ module Fleet
 
       puts "Preparing the attack:"
       puts "%s bees will attack %s times, %s at a time" % [options[:bees], options[:bees].to_i * options[:number].to_i, options[:concurrent]]
-      remains = options[:bees].to_i % @@hives.count
-      options[:bees] = options[:bees].to_i / @@hives.count
+      remains = options[:bees].to_i % @state.hives.count
+      options[:bees] = options[:bees].to_i / @state.hives.count
 
       puts "Hive              Bees"
-      @@hives.each_with_index do |instance_id, index|
-        if index == @@hives.size - 1
+      @state.hives.each_with_index do |instance_id, index|
+        if index == @state.hives.size - 1
           options[:bees] += remains
         end
         attack_options << options.clone
         puts '%s        %s' % [instance_id, options[:bees]]
 
-        hive = Hive.new @@username, @@key_name, instance_id
+        hive = Hive.new @state.username, @state.key_name, instance_id
         hives << hive
         attack_threads << Thread.new do
           hive.attack attack_options[index]
@@ -100,8 +101,8 @@ module Fleet
       data = {}
       report_threads = []
       if not hives.any?
-        @@hives.each_with_index do |instance_id, index|
-          hives << Hive.new(@@username, @@key_name, instance_id)
+        @state.hives.each_with_index do |instance_id, index|
+          hives << Hive.new(@state.username, @state.key_name, instance_id)
         end
       end
 
@@ -118,39 +119,40 @@ module Fleet
 
     # scale hives up and down
     def scaleHives(options)
-      if @@state.nil?
+      if not @state.loaded
         abort 'Perhaps build some hives first?'
       end
       number_of_hive = options.has_key?(:number) ? options[:number].to_i : 1
-      if @@hives.count == number_of_hive
+      if @state.hives.count == number_of_hive
         abort 'No hives scaled'
-      elsif @@hives.count > number_of_hive
-        destroyHives number_of_hive > 0 ? @@hives[number_of_hive..-1] : {}
+      elsif @state.hives.count > number_of_hive
+        destroyHives number_of_hive > 0 ? @state.hives[number_of_hive..-1] : {}
       else
-        options = {:number => number_of_hive - @@hives.count, :image_id => @@image_id}
-        createHives @@state.merge options
+        options = {:number => number_of_hive - @state.hives.count, :image_id => @state.image_id}
+        createHives @state.to_h.merge options
       end
     end
 
     # tear down all running hives
     def destroyHives instances = []
-      instances = instances.empty? ? @@hives : instances
+      instances = instances.empty? ? @state.hives : instances
       if not instances.empty?
 
         # attemp the terminate ec2 instances
         begin
-          @@control.terminate_instances instance_ids: instances
+          @ec2_client.terminate_instances instance_ids: instances
         rescue Aws::EC2::Errors::InvalidInstanceIDNotFound => e
           # for mismatches, terminate what we can
           instances_2b_removed = instances - e.to_s.match(/\'[^']*\'/)[0].split(',').map! {|x| x.strip.tr_s("'", "")}
-          @@control.terminate_instances instance_ids: instances_2b_removed
+          @ec2_client.terminate_instances instance_ids: instances_2b_removed
         rescue Aws::EC2::Errors::InvalidInstanceIDMalformed
         end
 
-        if instances.count == @@hives.count
+        if instances.count == @state.hives.count
           removeServerList
         else
-          writeServerList @@username, @@key_name, @@region, @@image_id, @@hives.reject {|item| instances.include? item}
+          @state.hives.reject! {|item| instances.include? item}
+          writeServerList
         end
       else
         abord 'Perhaps build some hives first?'
@@ -160,31 +162,31 @@ module Fleet
 
     private
 
-    def readServerList
+    def readServerState
       if not File.exist? STATE_FILE
         return false
       end
       server_state = IO.readlines(STATE_FILE).map! {|l| l.strip}
       begin
-        @@username = server_state[0]
-        @@key_name = server_state[1]
-        @@region   = server_state[2]
-        @@image_id = server_state[3]
-        @@hives    = server_state[4..-1]
+        @state.username = server_state[0]
+        @state.key_name = server_state[1]
+        @state.region   = server_state[2]
+        @state.image_id = server_state[3]
+        @state.hives    = server_state[4..-1]
       rescue
         abort 'A problem occured when reading hives'
       end
-      {:username => @@username, :key_name => @@key_name, :region => @@region, :image_id => @@image_id, :instances => @@hives}
+      @state.loaded = true
     end
 
-    def writeServerList(username, key, region, image_id, instances)
+    def writeServerList
       begin
         File.open(STATE_FILE, 'w') do |f|
-          f.write("%s\n" % username)
-          f.write("%s\n" % key)
-          f.write("%s\n" % region)
-          f.write("%s\n" % image_id)
-          f.write(instances.join("\n"))
+          f.write("%s\n" % @state.username)
+          f.write("%s\n" % @state.key_name)
+          f.write("%s\n" % @state.region)
+          f.write("%s\n" % @state.image_id)
+          f.write(@state.hives.join("\n"))
         end
       rescue
         abort 'Failed to written down hives details'
@@ -200,7 +202,7 @@ module Fleet
       hives_built = []
       filters = [{:name => 'instance-state-name', :values => ['pending', 'running']}]
       while hives_built.count != hives.count do
-        statuses = @@control.describe_instance_status instance_ids: hives.map(&:id), include_all_instances: true, filters: filters
+        statuses = @ec2_client.describe_instance_status instance_ids: hives.map(&:id), include_all_instances: true, filters: filters
         statuses.each do |response|
           response[:instance_statuses].each do |instance|
             building = instance[:instance_state].name == 'running' ? false : true
