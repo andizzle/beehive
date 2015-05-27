@@ -1,7 +1,7 @@
 require 'aws-sdk'
 require 'ostruct'
+require 'hornet/fleet'
 require 'hornet/hive'
-require 'hornet/report'
 
 module Fleet
   class Headquarter
