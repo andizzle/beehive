@@ -5,7 +5,7 @@ Gem::Specification.new do |spec|
 
   spec.author      = "Andy Zhang"
   spec.email       = 'andizzle.zhang@gmail.com'
-  spec.homepage    = 'https://github.com/andizzle/hornet'
+  spec.homepage    = 'https://github.com/andizzle/evilhornets'
   spec.license     = 'MIT'
   spec.date        = '2015-05-27'
 
