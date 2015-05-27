@@ -1,5 +1,5 @@
 # Evil Hornets!
----
+
 Hornets have won the war against bees. Now they control all beehives and enslave bees to fight other battles.
 Hornet is a utility for building hives (micro EC2 instances) and create soldiers (docker containers) to attack (stress test) web applications.
 
@@ -12,7 +12,7 @@ As an executable gem
 
     gem install evilhornets
     
-As brew package
+Soon as brew package
 
     brew install evilhornets
 
@@ -53,7 +53,7 @@ You have been warned.
 
 ### Bugs
 ---
-Please log your bugs on the <a href="https://github.com/andizzle/evilhornets">Github issues tracker</a>.
+Please log your bugs on the <a href="https://github.com/andizzle/evilhornets/issues">Github issues tracker</a>.
 
 ### Credits
 ---
