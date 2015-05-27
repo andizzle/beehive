@@ -101,8 +101,8 @@ class Hornet
           raise ArgumentError.new 'Missing argument: --url'
         end
       when 'up'
-        ops = {:region => 'us-east-1d', :username => 'ubuntu', :number => 1, :image_id => ''}.merge options.to_h
-        if not ops.has_key? :key
+        ops = {:region => 'us-east-1', :username => 'ubuntu', :number => 1, :image_id => 'ami-c3e997f9'}.merge options.to_h
+        if not ops.has_key? :key_name
           raise ArgumentError.new 'Missing argument: --key'
         end
       when 'scale'
@@ -118,7 +118,7 @@ class Hornet
   def self.go(args, options)
     command = args.first
     if not command.nil?
-      Hornet.validate_options command, options
+      options = Hornet.validate_options command, options
       headquarter = Fleet::Headquarter.new(command, options.to_h)
       headquarter.dispatch
     end
