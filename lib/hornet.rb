@@ -18,6 +18,10 @@ class Hornet
     options = OpenStruct.new
     parser = OptionParser.new do |opt|
 
+      if ['--help', '-h', 'help'].include? command
+        print_help = ['--help', '-h', 'help'].include? command
+        command = 'help'
+      end
       if not Commands.keys.include? command
         opt.banner = "Usage: hornet (%s) [options]" % Commands.keys.join('|')
       else
@@ -28,8 +32,9 @@ class Hornet
         end
 
         # build options depends on command
-        case command
-        when 'attack', 'help'
+
+        if command == 'attack' or print_help
+          opt.separator 'attack:'
           opt.on('-n', '--number [NUMBER]', 'Number of total attacks to launch (default: 1000).') do |value|
             options.number = value
           end
@@ -42,8 +47,10 @@ class Hornet
           opt.on('-u', '--url [URL]', 'URL of the target to attack.') do |value|
             options.url = value
           end
+        end
 
-        when 'up', 'help'
+        if command == 'up' or print_help
+          opt.separator 'up:'
           opt.on('-r', '--region [REGION]', 'Region the server will be built (default: us-east-1d).') do |value|
             options.region = value
           end
@@ -59,18 +66,24 @@ class Hornet
           opt.on('-i', '--image_id [IMAGE_ID]', 'The ID of the AMI.') do |value|
             options.image_id = value
           end
+        end
 
-        when 'scale', 'help'
+        if command == 'scale' or print_help
+          opt.separator 'scale:'
           opt.on('-n', '--number [NUMBER]', 'Number of servers to scale to (default: 1).') do |value|
             options.number = value
           end
         end
 
+        opt.on('-h', '--help', 'Print this help document.') do |value|
+          abort parser.to_s
+        end
       end
+
     end
 
     # don't parse anything if no command sepcified
-    if command.nil? or command == 'help'
+    if command.nil? or ['--help', '-h', 'help'].include? command
       abort parser.to_s
     end
     parser.parse!
