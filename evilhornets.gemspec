@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name               = "evilhornets"
-  spec.version            = "0.0.1"
+  spec.version            = "0.0.2"
   spec.default_executable = "hornet"
 
   spec.author      = "Andy Zhang"
